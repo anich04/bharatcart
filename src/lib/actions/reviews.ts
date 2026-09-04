@@ -65,7 +65,7 @@ export async function submitReviewAction(input: unknown): Promise<Result> {
   }
   const { productId, rating, title, body, images } = parsed.data;
 
-  const limit = rateLimit(`review:${userId}`, 5, 10 * 60_000);
+  const limit = await rateLimit(`review:${userId}`, 5, 10 * 60_000);
   if (!limit.ok) {
     return { ok: false, error: `Too many reviews. Try again in ${limit.retryAfterSec}s.` };
   }

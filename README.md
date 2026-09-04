@@ -20,8 +20,8 @@ shadcn/ui, Prisma + PostgreSQL, Auth.js v5, Razorpay.
 | 1 | Catalog: home, category listings, URL-driven filters/sort/pagination, Postgres full-text search, product detail with variants | ✅ |
 | 2 | Cart (guest → DB merge on login), wishlist, auth (email/password + Google), address book, order history | ✅ |
 | 3 | Checkout, server-computed totals, GST, Razorpay + COD, signature verification, idempotent webhooks, race-safe stock | ✅ |
-| 4 | Admin: dashboard, product CRUD + CSV import, order management, coupons, customers, low stock | ✅ |
-| 5 | Verified-purchase reviews, moderation, 404/500, skeletons, SEO metadata, JSON-LD, sitemap, robots | ✅ |
+| 4 | Admin: dashboard, product CRUD with Cloudinary image upload + CSV import, order management, coupons, customers, low stock | ✅ |
+| 5 | Verified-purchase reviews, moderation, GST tax invoices, 404/500, skeletons, SEO metadata, JSON-LD, sitemap, robots | ✅ |
 
 ---
 
@@ -158,8 +158,9 @@ a GIN index, created in the init migration and declared in the schema as
 ## Testing
 
 ```bash
-npm test          # Vitest: unit + integration (needs the database running)
-npm run test:e2e  # Playwright: browse → cart happy path, desktop + mobile
+node scripts/pg-dev.mjs   # (leave running — integration tests need the database)
+npm test                  # Vitest: 48 unit + integration tests
+npm run test:e2e          # Playwright: 24 e2e tests, desktop + mobile
 ```
 
 Covered where a bug costs real money:
@@ -171,6 +172,10 @@ Covered where a bug costs real money:
   never oversell (`tests/orders.integration.test.ts`)
 - Webhook/confirm **idempotency** — repeat deliveries never double-decrement
 - Authorization — a user cannot order against another user's address
+- Rate limiting — window enforcement, per-key isolation, and graceful
+  degradation when Upstash is unreachable
+- Cloudinary upload signing — signature correctness and that the API secret is
+  never included in the payload sent to the browser
 
 ---
 
@@ -249,7 +254,8 @@ e2e/                     Playwright
 ### Before taking real money
 
 - [ ] Replace all placeholder business details (name, GSTIN, seller state).
-- [ ] Swap the in-memory rate limiter for Upstash Redis (see SECURITY.md).
+- [ ] Set `UPSTASH_REDIS_REST_URL` / `_TOKEN` so rate limits work across serverless instances.
+- [ ] Set the Cloudinary variables so admins can upload product images.
 - [ ] Replace the placeholder COD PIN-serviceability rule with your courier's.
 - [ ] Confirm shipping-GST treatment with your accountant.
 - [ ] Upload real, licensed product photography (placeholders ship by default).

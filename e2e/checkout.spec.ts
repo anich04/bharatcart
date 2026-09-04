@@ -62,6 +62,28 @@ test.describe("checkout", () => {
     await expect(page.getByText(/your cart is empty/i)).toBeVisible();
   });
 
+  test("a confirmed order exposes a GST tax invoice", async ({ page }) => {
+    await signIn(page, CUSTOMER);
+    await page.goto("/account/orders");
+
+    const firstOrder = page.locator('a[href^="/account/orders/BC-"]').first();
+    await expect(firstOrder).toBeVisible();
+    await firstOrder.click();
+
+    await page.getByRole("link", { name: /view tax invoice/i }).click();
+    await expect(page).toHaveURL(/\/invoice$/);
+
+    // Invoice essentials: heading, seller GSTIN, place of supply, tax columns.
+    await expect(page.getByRole("heading", { name: "TAX INVOICE" })).toBeVisible();
+    await expect(page.getByText(/GSTIN:/)).toBeVisible();
+    await expect(page.getByText(/Place of supply/i)).toBeVisible();
+    await expect(page.getByText(/Intra-state supply \(CGST \+ SGST\)/i)).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "HSN" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Taxable" })).toBeVisible();
+    await expect(page.getByText(/Grand total/i)).toBeVisible();
+    await expect(page.getByText(/All prices are inclusive of GST/i)).toBeVisible();
+  });
+
   test("admin can see the dashboard and manage orders", async ({ page }) => {
     await signIn(page, ADMIN);
 

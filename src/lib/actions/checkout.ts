@@ -161,7 +161,7 @@ export async function placeOrderAction(params: {
   if (!session?.user?.id) return { ok: false, error: "Please sign in." };
   const userId = session.user.id;
 
-  const limit = rateLimit(`checkout:${userId}`, 10, 60_000);
+  const limit = await rateLimit(`checkout:${userId}`, 10, 60_000);
   if (!limit.ok) {
     return { ok: false, error: `Too many attempts. Try again in ${limit.retryAfterSec}s.` };
   }

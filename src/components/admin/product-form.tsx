@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { saveProductAction } from "@/lib/actions/admin-products";
+import { ImageUploader } from "@/components/image-uploader";
 
 const input = "border-input bg-background h-9 w-full rounded-md border px-3 text-sm outline-none";
 const label = "mb-1 block text-xs font-medium";
@@ -291,13 +292,11 @@ export function ProductForm({
       {/* Images + SEO */}
       <section className="border-border grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className={label}>Image URLs (one per line — upload to Cloudinary first)</label>
-          <textarea
-            value={v.imageUrls.join("\n")}
-            onChange={(e) => set("imageUrls", e.target.value.split("\n"))}
-            rows={3}
-            placeholder="https://res.cloudinary.com/..."
-            className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+          <label className={label}>Product images</label>
+          <ImageUploader
+            kind="products"
+            urls={v.imageUrls}
+            onChange={(urls) => set("imageUrls", urls)}
           />
         </div>
         <div>

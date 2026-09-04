@@ -1,74 +1,90 @@
-# BharatCart — Route Map (Phase 0, for review)
+# BharatCart — Route Map
 
 Next.js 15 App Router. **Server Components by default**; `"use client"` only where
-interactivity requires it. **Mutations are server actions** (co-located `actions.ts`),
-not REST endpoints — except the handful of API routes below that must be HTTP
-(webhooks, OAuth, uploads, sitemap). Every server action and route handler
-**re-checks auth/ownership** — never trusts middleware or hidden UI.
+interactivity genuinely requires it. **Mutations are server actions**
+(`src/lib/actions/*`), not REST endpoints — except the handful of API routes below
+that must be HTTP (OAuth, payment verification, webhooks, upload signing).
 
-Legend: 🌐 public · 🔒 logged-in · 🛡️ ADMIN only
+Every server action and route handler **re-checks auth and ownership**. Middleware
+is defence-in-depth only, never the sole gate.
 
-## Public catalog (Phase 1) 🌐
+Legend: 🌐 public · 🔒 signed-in · 🛡️ ADMIN only
+
+## Public catalog 🌐
+
 | Route | Notes |
-|---|---|
-| `/` | Home: hero, category rails, featured + new-arrivals carousels |
-| `/c/[...slug]` | Category / listing. Filters + sort + pagination **in URL query** (`?price=…&brand=…&rating=…&inStock=1&sort=…&page=…`) |
-| `/search` | Postgres full-text search over title+description+brand (`?q=…` + same filters) |
-| `/p/[slug]` | Product detail: gallery, buy box, variant picker, specs, reviews, similar |
-| `/b/[slug]` | Brand listing (optional, same engine as category) |
+| --- | --- |
+| `/` | Home: hero, category grid, featured + new-arrival rails |
+| `/c/[...slug]` | Category listing. Filters + sort + pagination live **in the URL** (`?brand=…&minPrice=…&maxPrice=…&rating=…&inStock=1&sort=…&page=…`) |
+| `/search` | Postgres full-text search over title + description, plus brand matching (`?q=…`, same filters) |
+| `/p/[slug]` | Product detail: gallery, variant picker, specs, rating distribution, reviews, similar products, Product JSON-LD |
 
-## Account & cart (Phase 2)
+## Account & cart
+
 | Route | Access | Notes |
-|---|---|---|
-| `/cart` | 🌐 | Guest cart in localStorage; user cart in DB; merged on login |
-| `/wishlist` | 🔒 | Save-for-later |
-| `/login` `/signup` | 🌐 | Email/password + Google; rate-limited |
-| `/forgot-password` `/reset-password` | 🌐 | Emailed hashed token |
+| --- | --- | --- |
+| `/cart` | 🌐 | Guest cart in `localStorage`; signed-in cart in the DB; merged on login |
+| `/wishlist` | 🔒 | Saved products (paginated) |
+| `/login` · `/signup` | 🌐 | Email/password + Google (Google shown only when configured); rate limited |
+| `/forgot-password` · `/reset-password` | 🌐 | Emailed single-use hashed token |
 | `/verify-email` | 🌐 | Email verification via hashed token |
-| `/account` | 🔒 | Profile |
-| `/account/addresses` | 🔒 | Address book (multiple, one default, PIN format) |
+| `/account` | 🔒 | Profile (name, phone, verification status) |
+| `/account/addresses` | 🔒 | Address book — multiple, one default, Indian format |
 | `/account/orders` | 🔒 | Order history (paginated) |
-| `/account/orders/[orderNumber]` | 🔒 | Order detail — **ownership checked** |
+| `/account/orders/[orderNumber]` | 🔒 | Order detail — **ownership enforced in the query** |
+| `/account/orders/[orderNumber]/invoice` | 🔒 | GST tax invoice, print/PDF — **ownership enforced** |
 
-## Checkout & payments (Phase 3) 🔒
+## Checkout & payment 🔒
+
 | Route | Notes |
-|---|---|
-| `/checkout` | Address → payment mode (Prepaid/COD) → review. Totals **recomputed server-side** |
-| `/checkout/payment` | Opens Razorpay Checkout with server-created `razorpay_order_id` |
-| `/order/confirmation/[orderNumber]` | Post-payment landing (order state comes from server/webhook, not client callback) |
+| --- | --- |
+| `/checkout` | Address → payment mode (Prepaid/COD) → coupon → review. Totals **recomputed server-side**; Razorpay Checkout opens in-page |
+| `/order/confirmation/[orderNumber]` | Post-order landing. Shows "payment pending" until the webhook confirms |
 
-## Admin (Phase 4) 🛡️  — gated in middleware **and** re-checked in every action
+## Admin 🛡️
+
+Gated in middleware **and** re-checked by `requireAdminAction()` in every mutation.
+
 | Route | Notes |
-|---|---|
-| `/admin` | Dashboard: revenue, orders, top products, date-range selectable |
-| `/admin/products` | List/search/filter (paginated) |
-| `/admin/products/new` · `/admin/products/[id]` | CRUD, image upload, variants, stock, SEO fields |
-| `/admin/products/import` | Bulk CSV import |
-| `/admin/orders` | List, filter by status (paginated) |
-| `/admin/orders/[id]` | Detail; update status; attach carrier + tracking number |
-| `/admin/inventory` | Low-stock alerts |
-| `/admin/customers` | Customer list (paginated) |
-| `/admin/coupons` · `/admin/coupons/[id]` | Coupon CRUD (percent/flat, min-order, usage cap, expiry) |
-| `/admin/reviews` | Moderation (hide abusive) |
+| --- | --- |
+| `/admin` | Dashboard: revenue, orders, AOV, pending, top products, recent orders, low-stock alert; date range 7d/30d/90d/all |
+| `/admin/orders` | List + status filter + search by order no./name/phone (paginated) |
+| `/admin/orders/[id]` | Detail; status transitions; carrier + tracking; refund |
+| `/admin/products` | List + search + status filter (paginated) |
+| `/admin/products/new` · `/admin/products/[id]` | Create/edit: variants, stock, GST rate, HSN, SEO, Cloudinary image upload |
+| `/admin/products/import` | Bulk CSV import (create/update matched on slug) |
+| `/admin/inventory` | Low stock with adjustable threshold and inline stock editing |
+| `/admin/coupons` | Coupon create/edit/enable/disable |
+| `/admin/reviews` | Moderation — hide/unhide, filter to hidden |
+| `/admin/customers` | Customer list with order count and lifetime spend (paginated) |
 
-## API route handlers (must be HTTP, not server actions)
+## API route handlers
+
 | Route | Method | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `/api/auth/[...nextauth]` | * | Auth.js v5 (credentials + Google) |
-| `/api/checkout/razorpay/order` | POST 🔒 | Create Razorpay order from **server-computed** amount |
-| `/api/checkout/razorpay/verify` | POST 🔒 | Verify HMAC signature (timing-safe) → CONFIRMED |
-| `/api/webhooks/razorpay` | POST 🌐 | `payment.captured` / `payment.failed` / `refund.processed`; signature-verified; **idempotent**; source of truth |
-| `/api/uploads/*` | POST 🛡️ | Cloudinary signed uploads (admin) + review images (user) |
-| `/api/serviceability` | GET 🌐 | COD PIN-code serviceability check |
-| `/api/search/suggest` | GET 🌐 | Type-ahead suggestions |
+| `/api/checkout/razorpay/verify` | POST 🔒 | Verifies the Checkout HMAC signature (timing-safe), then confirms the order |
+| `/api/webhooks/razorpay` | POST 🌐 | `payment.captured` / `payment.failed` / `refund.processed`; raw-body signature verified; **idempotent**; the source of truth |
+| `/api/uploads/signature` | POST 🔒 | Mints a Cloudinary upload signature. `products` is ADMIN-only, `reviews` any signed-in user; the API secret never leaves the server |
 
-## SEO / infra (Phase 5) 🌐
-`/sitemap.xml` · `/robots.txt` · Product JSON-LD (Product + Offer + AggregateRating) ·
-Open Graph metadata · `not-found.tsx` (404) · `error.tsx` (500) · `loading.tsx` skeletons.
+> The Razorpay **order** is created inside the `placeOrderAction` server action
+> (not a REST route), so the amount can never originate from the client.
+
+## SEO / infra 🌐
+
+`/sitemap.xml` (categories + active products) · `/robots.txt` (disallows
+`/admin`, `/account`, `/checkout`, `/cart`, `/wishlist`, `/order`, `/api`, auth
+pages) · `not-found.tsx` (404) · `error.tsx` (500) · `loading.tsx` skeletons on
+listing, search and product routes · Open Graph metadata · Product + Offer +
+AggregateRating JSON-LD.
 
 ## Middleware
-- `/admin/**` → require session + `role === ADMIN` (defence-in-depth; **each admin
-  action re-checks** the role and never relies on this alone).
-- `/account/**`, `/checkout/**`, `/wishlist` → require session.
-- Note: NextAuth v5 middleware runs on the edge; the DB role re-check happens in the
-  server action / route handler (Node runtime), which is the authoritative gate.
+
+Matcher: `/account/**`, `/checkout/**`, `/wishlist/**`, `/admin/**`.
+
+- Not signed in → redirect to `/login?callbackUrl=…`
+- `/admin/**` additionally requires `role === "ADMIN"`, else redirect to `/`
+
+Middleware runs on the edge using an adapter-free auth config
+(`src/auth.config.ts`), so Prisma and bcrypt stay out of the edge bundle. The
+authoritative role/ownership checks happen in the Node runtime.

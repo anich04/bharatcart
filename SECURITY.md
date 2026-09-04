@@ -114,13 +114,35 @@ the database. Assume all browser input is hostile.
 
 ## Rate limiting
 
-Login, signup, password reset, checkout and review submission are rate limited
-(`src/lib/rate-limit.ts`).
+Login, signup, password reset, checkout, review submission and image uploads
+are rate limited (`src/lib/rate-limit.ts`).
 
-> ⚠️ **Before production:** the default limiter is in-memory, which does not
-> share state across serverless instances. Swap the internals for Upstash Redis
-> (`UPSTASH_REDIS_REST_URL` / `_TOKEN` are already in `.env.example`). The
-> `rateLimit()` signature stays the same.
+The limiter uses **Upstash Redis** whenever `UPSTASH_REDIS_REST_URL` and
+`UPSTASH_REDIS_REST_TOKEN` are set — required on serverless, where instances do
+not share memory. Without them it falls back to an in-process map (fine for
+local development and single-instance deploys). If Upstash is unreachable it
+degrades to the local limiter rather than failing open or locking everyone out.
+
+> ⚠️ **Before production:** set the two Upstash variables in Vercel. Without
+> them each serverless instance counts separately, which weakens the limits.
+
+## Image uploads
+
+Product and review images upload **directly from the browser to Cloudinary**
+using a short-lived signature minted server-side
+(`/api/uploads/signature`). `CLOUDINARY_API_SECRET` never leaves the server —
+the client only receives the cloud name, public API key, folder, timestamp and
+signature. Product uploads are **ADMIN-only**; review uploads require a signed-in
+user. Uploads are folder-scoped and rate limited.
+
+## Invoices
+
+A GST tax invoice is available per order at
+`/account/orders/[orderNumber]/invoice`, showing the seller GSTIN, place of
+supply, and per-line HSN + taxable value + CGST/SGST or IGST. It is generated
+only once an order has an invoice number (i.e. is confirmed), and the order is
+fetched with the user id in the `WHERE` clause so one customer can never read
+another's invoice.
 
 ## Other protections
 

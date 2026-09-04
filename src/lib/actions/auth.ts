@@ -47,7 +47,7 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     return { error: parsed.error.issues[0]?.message ?? "Invalid details" };
   }
 
-  const limit = rateLimit(`signup:${await clientIp()}`, 5, 60_000);
+  const limit = await rateLimit(`signup:${await clientIp()}`, 5, 60_000);
   if (!limit.ok) return { error: `Too many attempts. Try again in ${limit.retryAfterSec}s.` };
 
   const { name, email, password } = parsed.data;
@@ -76,7 +76,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   if (!parsed.success) return { error: "Enter a valid email and password." };
 
   const ip = await clientIp();
-  const limit = rateLimit(`login:${ip}:${parsed.data.email}`, 8, 5 * 60_000);
+  const limit = await rateLimit(`login:${ip}:${parsed.data.email}`, 8, 5 * 60_000);
   if (!limit.ok) return { error: `Too many attempts. Try again in ${limit.retryAfterSec}s.` };
 
   const callbackUrl = (formData.get("callbackUrl") as string) || "/";
@@ -111,7 +111,7 @@ export async function requestPasswordResetAction(
   const parsed = requestResetSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) return { error: "Enter a valid email." };
 
-  const limit = rateLimit(`reset:${await clientIp()}`, 5, 10 * 60_000);
+  const limit = await rateLimit(`reset:${await clientIp()}`, 5, 10 * 60_000);
   if (!limit.ok) return { error: `Too many attempts. Try again in ${limit.retryAfterSec}s.` };
 
   const user = await prisma.user.findUnique({

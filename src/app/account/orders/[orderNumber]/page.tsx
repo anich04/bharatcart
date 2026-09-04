@@ -140,6 +140,15 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       </div>
 
+      {order.invoiceNumber && (
+        <Link
+          href={`/account/orders/${order.orderNumber}/invoice`}
+          className="border-input hover:bg-muted flex w-fit items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium"
+        >
+          View tax invoice
+        </Link>
+      )}
+
       <Link href="/account/orders" className="text-primary text-sm hover:underline">
         ← Back to orders
       </Link>
